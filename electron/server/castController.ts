@@ -29,15 +29,22 @@ export class CastController {
   discover(timeoutMs = 2200) {
     this.devices.clear();
     this.browser?.stop();
-    this.browser = this.bonjour.find({ type: "googlecast" }, (service) => {
+    const browser = this.bonjour.find({ type: "googlecast" }, (service) => {
       const device = normalizeCastService(service);
       if (device) {
         this.devices.set(device.id, device);
       }
     });
+    this.browser = browser;
 
     return new Promise<CastDevice[]>((resolve) => {
-      setTimeout(() => resolve([...this.devices.values()]), timeoutMs);
+      setTimeout(() => {
+        browser.stop();
+        if (this.browser === browser) {
+          this.browser = null;
+        }
+        resolve([...this.devices.values()]);
+      }, timeoutMs);
     });
   }
 
@@ -104,5 +111,14 @@ export class CastController {
     this.player = null;
     this.client?.close();
     this.client = null;
+  }
+
+  async shutdown() {
+    await this.disconnect();
+    this.browser?.stop();
+    this.browser = null;
+    await new Promise<void>((resolve) => {
+      this.bonjour.destroy(() => resolve());
+    });
   }
 }

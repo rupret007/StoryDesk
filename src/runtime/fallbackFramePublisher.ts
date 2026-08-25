@@ -11,10 +11,15 @@ export class FallbackFramePublisherService {
   private video: HTMLVideoElement | null = null;
   private timer: number | null = null;
   private publishing = false;
+  private generation = 0;
 
   async start(stream: MediaStream, session: Session, settings: StreamSettings) {
     this.stop();
+    const generation = this.generation;
     await this.bridge.receiver.resetFallbackStream(session.token);
+    if (generation !== this.generation) {
+      return;
+    }
 
     const video = document.createElement("video");
     video.muted = true;
@@ -27,13 +32,14 @@ export class FallbackFramePublisherService {
 
     const fps = Math.max(1, Math.min(12, settings.fps));
     this.timer = window.setInterval(
-      () => void this.publishFrame(session.token, settings),
+      () => void this.publishFrame(session.token, settings, generation),
       Math.round(1000 / fps)
     );
-    void this.publishFrame(session.token, settings);
+    void this.publishFrame(session.token, settings, generation);
   }
 
   stop() {
+    this.generation += 1;
     if (this.timer) {
       window.clearInterval(this.timer);
       this.timer = null;
@@ -48,8 +54,18 @@ export class FallbackFramePublisherService {
     this.publishing = false;
   }
 
-  private async publishFrame(token: string, settings: StreamSettings) {
-    if (this.publishing || !this.video || !this.canvas || this.video.readyState < 2) {
+  private async publishFrame(
+    token: string,
+    settings: StreamSettings,
+    generation: number
+  ) {
+    if (
+      generation !== this.generation ||
+      this.publishing ||
+      !this.video ||
+      !this.canvas ||
+      this.video.readyState < 2
+    ) {
       return;
     }
 
@@ -69,11 +85,13 @@ export class FallbackFramePublisherService {
     this.canvas.toBlob(
       async (blob) => {
         try {
-          if (blob) {
+          if (blob && generation === this.generation) {
             this.bridge.receiver.publishFallbackFrame(token, await blob.arrayBuffer());
           }
         } finally {
-          this.publishing = false;
+          if (generation === this.generation) {
+            this.publishing = false;
+          }
         }
       },
       "image/jpeg",

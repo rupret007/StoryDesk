@@ -35,6 +35,7 @@ function App() {
   const selectedDeviceId = runtimeState.cast.selectedDeviceId ?? "";
   const displayReady = runtimeState.display.status === "ready";
   const streamLive = runtimeState.stream.status === "live";
+  const streamStarting = runtimeState.stream.status === "starting";
   const castConnected = runtimeState.cast.status === "connected";
 
   const selectedSource = useMemo(
@@ -188,11 +189,11 @@ function App() {
               <span>{runtimeState.receiver.frameRate ?? settings.stream.fps} fps</span>
             </div>
             <div className="button-row">
-              <button onClick={() => void actions.startStream()} disabled={!desktopAvailable || !displayReady || streamLive}>
+              <button onClick={() => void actions.startStream()} disabled={!desktopAvailable || !displayReady || streamLive || streamStarting}>
                 <Play size={17} />
                 Start
               </button>
-              <button className="secondary" onClick={() => void actions.stopStream()} disabled={!desktopAvailable || !streamLive}>
+              <button className="secondary" onClick={() => void actions.stopStream()} disabled={!desktopAvailable || (!streamLive && !streamStarting)}>
                 <Square size={17} />
                 Stop
               </button>

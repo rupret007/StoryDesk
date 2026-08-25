@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { Session } from "./types";
+import type { DesktopSession } from "./types";
 
 const joinAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -7,10 +7,12 @@ export function createSession(
   host: string,
   port: number,
   token = createSessionToken(),
-  joinCode = createJoinCode()
-): Session {
+  joinCode = createJoinCode(),
+  hostToken = createSessionToken()
+): DesktopSession {
   return {
     token,
+    hostToken,
     receiverUrl: `http://${host}:${port}/r/${token}`,
     tvUrl: `http://${host}:${port}/tv`,
     joinCode,

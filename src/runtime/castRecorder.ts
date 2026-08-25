@@ -4,9 +4,15 @@ import { getStoryDeskBridge } from "./desktopBridge";
 export class CastRecorderService {
   private recorder: MediaRecorder | null = null;
   private readonly bridge = getStoryDeskBridge();
+  private generation = 0;
 
   async start(stream: MediaStream, session: Session, settings: StreamSettings) {
+    this.stop();
+    const generation = this.generation;
     await this.bridge.cast.resetStream(session.token);
+    if (generation !== this.generation) {
+      return;
+    }
     const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
       ? "video/webm;codecs=vp8"
       : "video/webm";
@@ -18,16 +24,22 @@ export class CastRecorderService {
       if (event.data.size === 0) {
         return;
       }
-      this.bridge.cast.publishChunk(session.token, await event.data.arrayBuffer());
+      const chunk = await event.data.arrayBuffer();
+      if (generation === this.generation) {
+        this.bridge.cast.publishChunk(session.token, chunk);
+      }
     };
     recorder.start(250);
     this.recorder = recorder;
   }
 
   stop() {
-    if (this.recorder && this.recorder.state !== "inactive") {
-      this.recorder.stop();
-    }
+    this.generation += 1;
+    const recorder = this.recorder;
     this.recorder = null;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.ondataavailable = null;
+      recorder.stop();
+    }
   }
 }

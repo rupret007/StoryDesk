@@ -1,5 +1,5 @@
 import { defaultAgentSettings, defaultAppSettings } from "../../shared/runtimeState";
-import type { AgentRunSnapshot, Session } from "../types";
+import type { AgentRunSnapshot, DesktopSession } from "../types";
 
 export type StoryDeskBridge = Window["storyDesk"];
 
@@ -65,9 +65,10 @@ const browserPreviewBridge: StoryDeskBridge = {
   }
 };
 
-function createPreviewSession(): Session {
+function createPreviewSession(): DesktopSession {
   return {
     token: "browser-preview",
+    hostToken: "browser-preview-host",
     receiverUrl: window.location.href,
     tvUrl: window.location.href,
     joinCode: "PREVIEW",

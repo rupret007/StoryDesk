@@ -7,6 +7,7 @@ import type {
   CastDevice,
   DisplayEvent,
   DisplaySource,
+  DesktopSession,
   RuntimeRequest,
   RuntimeState,
   Session,
@@ -25,7 +26,7 @@ declare global {
         list(): Promise<DisplaySource[]>;
       };
       session: {
-        get(): Promise<Session>;
+        get(): Promise<DesktopSession>;
       };
       receiver: {
         openUrl(url: string): Promise<void>;

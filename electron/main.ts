@@ -17,6 +17,8 @@ let settingsStore: SettingsStore<AppSettings> | null = null;
 let agentSettingsStore: SettingsStore<AgentSettings> | null = null;
 let runtimeCommandBus: RuntimeCommandBus | null = null;
 let agentOrchestrator: AgentOrchestrator | null = null;
+let shutdownPromise: Promise<void> | null = null;
+let quitAfterShutdown = false;
 
 function rendererUrl() {
   return process.env.STORYDESK_DEV_SERVER_URL
@@ -25,7 +27,7 @@ function rendererUrl() {
 }
 
 async function createWindow() {
-  mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1220,
     height: 820,
     minWidth: 980,
@@ -38,8 +40,14 @@ async function createWindow() {
       nodeIntegration: false
     }
   });
+  mainWindow = window;
+  window.on("closed", () => {
+    if (mainWindow === window) {
+      mainWindow = null;
+    }
+  });
 
-  await mainWindow.loadURL(rendererUrl());
+  await window.loadURL(rendererUrl());
 }
 
 function sendDisplayEvent(event: unknown) {
@@ -67,23 +75,38 @@ app.whenReady().then(async () => {
   );
   registerIpcHandlers();
   await createWindow();
+}).catch((error) => {
+  console.error("StoryDesk failed to start", error);
+  app.quit();
 });
 
 app.on("window-all-closed", () => {
-  void shutdown();
+  app.quit();
 });
 
-app.on("before-quit", () => {
-  void shutdown();
-});
-
-async function shutdown() {
-  await castController?.disconnect();
-  await displayHelper?.shutdown();
-  await appServer?.stop();
-  if (process.platform !== "darwin") {
-    app.quit();
+app.on("before-quit", (event) => {
+  if (quitAfterShutdown) {
+    return;
   }
+  event.preventDefault();
+  void shutdown().finally(() => {
+    quitAfterShutdown = true;
+    app.quit();
+  });
+});
+
+function shutdown() {
+  if (!shutdownPromise) {
+    shutdownPromise = (async () => {
+      agentOrchestrator?.stop();
+      await Promise.allSettled([
+        castController?.shutdown(),
+        displayHelper?.shutdown(),
+        appServer?.stop()
+      ]);
+    })();
+  }
+  return shutdownPromise;
 }
 
 function registerIpcHandlers() {

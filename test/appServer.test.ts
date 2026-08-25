@@ -3,9 +3,18 @@ import { describe, expect, it } from "vitest";
 import { AppServer } from "../electron/server/appServer";
 
 describe("AppServer signaling", () => {
+  it("reports health without exposing the session credential", async () => {
+    const server = await AppServer.start();
+    const response = await fetch(localUrl(server.session.receiverUrl).replace(/\/r\/[^/]+$/, "/health"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    await server.stop();
+  });
+
   it("routes receiver joins and metrics to the host", async () => {
     const server = await AppServer.start();
-    const host = new WebSocket(`${server.session.wsUrl}?role=host&token=${server.session.token}`);
+    const host = new WebSocket(`${server.session.wsUrl}?role=host&token=${server.session.hostToken}`);
     const receiver = new WebSocket(
       `${server.session.wsUrl}?role=receiver&token=${server.session.token}&id=receiver-1`
     );
@@ -41,12 +50,25 @@ describe("AppServer signaling", () => {
 
   it("rejects invalid websocket tokens", async () => {
     const server = await AppServer.start();
-    const ws = new WebSocket(`${server.session.wsUrl}?role=host&token=bad`);
+    const ws = new WebSocket(`${server.session.wsUrl}?role=host&token=${server.session.token}`);
     await new Promise<void>((resolve) => {
       ws.on("close", () => resolve());
       ws.on("error", () => resolve());
     });
     expect(ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING).toBe(true);
+    await server.stop();
+  });
+
+  it("does not expose session secrets in health checks", async () => {
+    const server = await AppServer.start();
+    const healthUrl = new URL(localUrl(server.session.receiverUrl));
+    healthUrl.pathname = "/health";
+
+    const response = await fetch(healthUrl);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ ok: true });
     await server.stop();
   });
 

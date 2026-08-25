@@ -1,14 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { WebSocket } from "ws";
 import { AppServer } from "../electron/server/appServer";
 
-test("receiver page loads and enters negotiation", async ({ page }) => {
+test("receiver page loads and waits for the host stream", async ({ page }) => {
   const server = await AppServer.start();
   const url = localReceiverUrl(server.session.receiverUrl);
 
   await page.goto(url);
 
   await expect(page.locator("video#screen")).toBeAttached();
-  await expect(page.locator("#status")).toHaveText(/Connecting|Negotiating|checking|new|connected/i);
+  await expect(page.locator("#status")).toHaveText(/Connecting|Waiting for stream/i);
 
   await server.stop();
 });
@@ -18,10 +19,44 @@ test("receiver page reports reconnecting after server closes", async ({ page }) 
   const url = localReceiverUrl(server.session.receiverUrl);
 
   await page.goto(url);
-  await expect(page.locator("#status")).toHaveText(/Connecting|Negotiating|checking|new|connected/i);
+  await expect(page.locator("#status")).toHaveText(/Connecting|Waiting for stream/i);
   await server.stop();
 
   await expect(page.locator("#status")).toHaveText(/Reconnecting|Error/i);
+});
+
+test("receiver negotiates when the host starts after the receiver", async ({ page }) => {
+  const server = await AppServer.start();
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.goto(localReceiverUrl(server.session.receiverUrl));
+  await expect(page.locator("#status")).toHaveText("Waiting for stream");
+
+  const host = new WebSocket(
+    `${localReceiverUrl(server.session.wsUrl)}?role=host&token=${server.session.hostToken}`
+  );
+  const messages: Array<{ type: string; receiverId?: string; data?: unknown }> = [];
+  host.on("message", (raw) => messages.push(JSON.parse(raw.toString())));
+  await waitForOpen(host);
+  await waitFor(() => messages.some((message) => message.type === "receiver-joined"));
+  const receiverId = messages.find((message) => message.type === "receiver-joined")?.receiverId;
+  expect(receiverId).toBeTruthy();
+
+  host.send(JSON.stringify({ type: "host-ready", target: "receiver", receiverId }));
+  await waitFor(() => messages.some((message) => message.type === "signal"));
+  await expect(page.locator("#status")).toHaveText(/Negotiating|checking|new|connected/i);
+
+  host.send(JSON.stringify({
+    type: "signal",
+    target: "receiver",
+    receiverId,
+    data: { type: "ice", candidate: { candidate: "candidate:1 1 UDP 1 127.0.0.1 9 typ host" } }
+  }));
+  await page.waitForTimeout(100);
+  expect(pageErrors).toEqual([]);
+
+  host.close();
+  await server.stop();
 });
 
 test("invalid receiver token returns 404", async ({ page }) => {
@@ -84,4 +119,26 @@ function localReceiverUrl(receiverUrl: string) {
   const url = new URL(receiverUrl);
   url.hostname = "127.0.0.1";
   return url.toString();
+}
+
+function waitForOpen(ws: WebSocket) {
+  return new Promise<void>((resolve, reject) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      resolve();
+      return;
+    }
+    ws.once("open", () => resolve());
+    ws.once("error", reject);
+  });
+}
+
+async function waitFor(assertion: () => boolean, timeoutMs = 2000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (assertion()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error("Timed out waiting for condition");
 }

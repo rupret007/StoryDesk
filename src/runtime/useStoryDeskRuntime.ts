@@ -52,6 +52,8 @@ export function useStoryDeskRuntime() {
   const runtimeStateRef = useRef(runtimeState);
   const settingsRef = useRef(settings);
   const logIdRef = useRef(0);
+  const streamGenerationRef = useRef(0);
+  const hostTokenRef = useRef("");
 
   useEffect(() => {
     runtimeStateRef.current = runtimeState;
@@ -63,7 +65,9 @@ export function useStoryDeskRuntime() {
   }, [settings]);
 
   const updateRuntime = useCallback((updater: (state: RuntimeState) => RuntimeState) => {
-    setRuntimeState((current) => updater(current));
+    const next = updater(runtimeStateRef.current);
+    runtimeStateRef.current = next;
+    setRuntimeState(next);
   }, []);
 
   const addLog = useCallback(
@@ -154,8 +158,9 @@ export function useStoryDeskRuntime() {
       if (!desktopAvailableRef.current) {
         throw new Error("Open StoryDesk in the Electron app to create a virtual display.");
       }
-      await storyDeskRef.current.display.start(config);
       addLog("info", "Creating virtual display");
+      await storyDeskRef.current.display.start(config);
+      await waitForDisplayStatus(runtimeStateRef, "ready");
     } catch (error) {
       const message = String(error);
       addLog("error", message);
@@ -168,6 +173,8 @@ export function useStoryDeskRuntime() {
   }, [addLog, updateRuntime]);
 
   const stopStream = useCallback(async () => {
+    streamGenerationRef.current += 1;
+    const session = runtimeStateRef.current.session;
     castRecorderRef.current.stop();
     fallbackPublisherRef.current.stop();
     signalingRef.current?.stop();
@@ -176,6 +183,21 @@ export function useStoryDeskRuntime() {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+
+    const cleanupResults = await Promise.allSettled([
+      storyDeskRef.current.cast.disconnect(),
+      ...(session
+        ? [
+            storyDeskRef.current.cast.resetStream(session.token),
+            storyDeskRef.current.receiver.resetFallbackStream(session.token)
+          ]
+        : [])
+    ]);
+    const cleanupFailure = cleanupResults.find((result) => result.status === "rejected");
+    if (cleanupFailure?.status === "rejected") {
+      addLog("warn", `Stream cleanup was incomplete: ${String(cleanupFailure.reason)}`);
+    }
+
     updateRuntime((state) => ({
       ...state,
       stream: { ...state.stream, status: "idle", startedAt: undefined },
@@ -186,21 +208,25 @@ export function useStoryDeskRuntime() {
         latencyMs: undefined,
         bitrateKbps: undefined,
         frameRate: undefined
-      }
+      },
+      cast: { ...state.cast, status: "idle" }
     }));
-  }, [updateRuntime]);
+  }, [addLog, updateRuntime]);
 
   const stopDisplay = useCallback(async () => {
     await stopStream();
     await storyDeskRef.current.display.stop();
+    await waitForDisplayStatus(runtimeStateRef, "offline");
   }, [stopStream]);
 
   const startStream = useCallback(async () => {
     const state = runtimeStateRef.current;
     const session = state.session;
-    if (!session) {
+    const hostToken = hostTokenRef.current;
+    if (!session || !hostToken) {
       throw new Error("Local server is not ready");
     }
+    const generation = ++streamGenerationRef.current;
 
     updateRuntime((current) => ({
       ...current,
@@ -208,47 +234,75 @@ export function useStoryDeskRuntime() {
       receiver: { ...current.receiver, status: "waiting", url: session.receiverUrl }
     }));
 
-    let sources = state.sources;
-    let source = sources.find((item) => item.id === state.stream.sourceId);
-    if (!source) {
-      sources = await refreshSources();
-      const updatedState = runtimeStateRef.current;
-      source =
-        sources.find((item) => item.id === updatedState.stream.sourceId) ??
-        sources.find((item) => item.name.toLowerCase().includes("storydesk"));
-    }
-    if (!source) {
-      throw new Error("Virtual display source not found");
-    }
-
-    const streamSettings = settingsRef.current.stream;
-    const constraints = {
-      audio: false,
-      video: {
-        mandatory: {
-          chromeMediaSource: "desktop",
-          chromeMediaSourceId: source.id,
-          minWidth: streamSettings.width,
-          maxWidth: streamSettings.width,
-          minHeight: streamSettings.height,
-          maxHeight: streamSettings.height,
-          maxFrameRate: streamSettings.fps
-        }
-      }
-    } as MediaStreamConstraints;
-
     try {
+      let sources = state.sources;
+      let source = sources.find((item) => item.id === state.stream.sourceId);
+      if (!source) {
+        sources = await refreshSources();
+        if (generation !== streamGenerationRef.current) {
+          return;
+        }
+        const updatedState = runtimeStateRef.current;
+        source =
+          sources.find((item) => item.id === updatedState.stream.sourceId) ??
+          sources.find((item) => item.name.toLowerCase().includes("storydesk"));
+      }
+      if (!source) {
+        throw new Error("Virtual display source not found");
+      }
+
+      const streamSettings = settingsRef.current.stream;
+      const constraints = {
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: "desktop",
+            chromeMediaSourceId: source.id,
+            minWidth: streamSettings.width,
+            maxWidth: streamSettings.width,
+            minHeight: streamSettings.height,
+            maxHeight: streamSettings.height,
+            maxFrameRate: streamSettings.fps
+          }
+        }
+      } as MediaStreamConstraints;
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (generation !== streamGenerationRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       localStreamRef.current = stream;
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        if (localStreamRef.current === stream) {
+          addLog("warn", "Screen capture ended");
+          void stopStream();
+        }
+      }, { once: true });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-      signalingRef.current?.start(stream, session);
+      signalingRef.current?.start(stream, session, hostToken);
       await fallbackPublisherRef.current.start(stream, session, streamSettings);
+      if (generation !== streamGenerationRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        if (localStreamRef.current === stream) {
+          localStreamRef.current = null;
+        }
+        return;
+      }
       try {
         await castRecorderRef.current.start(stream, session, streamSettings);
       } catch (error) {
         addLog("warn", `Cast stream recorder unavailable: ${String(error)}`);
+      }
+      if (generation !== streamGenerationRef.current) {
+        castRecorderRef.current.stop();
+        stream.getTracks().forEach((track) => track.stop());
+        if (localStreamRef.current === stream) {
+          localStreamRef.current = null;
+        }
+        return;
       }
       updateRuntime((current) => ({
         ...current,
@@ -269,16 +323,34 @@ export function useStoryDeskRuntime() {
       }));
       addLog("info", "Stream started");
     } catch (error) {
-      const message = `Screen capture failed: ${String(error)}`;
+      if (generation !== streamGenerationRef.current) {
+        return;
+      }
+      await stopStream();
+      const message = `Unable to start stream: ${errorMessage(error)}`;
       addLog("error", message);
       updateRuntime((current) => ({
         ...current,
-        stream: { ...current.stream, status: "error", lastError: message },
-        permissions: { ...current.permissions, screenRecording: "denied" }
+        stream: {
+          ...current.stream,
+          status: "error",
+          startedAt: undefined,
+          lastError: message
+        },
+        receiver: {
+          ...current.receiver,
+          status: "error",
+          connectedCount: 0,
+          lastError: message
+        },
+        permissions: isPermissionDeniedError(error) ? {
+          ...current.permissions,
+          screenRecording: "denied"
+        } : current.permissions
       }));
       throw error;
     }
-  }, [addLog, refreshSources, updateRuntime]);
+  }, [addLog, refreshSources, stopStream, updateRuntime]);
 
   const discoverCastDevices = useCallback(async () => {
     updateRuntime((state) => ({
@@ -467,6 +539,12 @@ export function useStoryDeskRuntime() {
       void refreshSources();
     }
     if (event.type === "stopped" || event.type === "terminated") {
+      if (
+        runtimeStateRef.current.stream.status === "live" ||
+        runtimeStateRef.current.stream.status === "starting"
+      ) {
+        void stopStream();
+      }
       updateRuntime((state) => ({
         ...state,
         display: {
@@ -485,7 +563,7 @@ export function useStoryDeskRuntime() {
       }));
       addLog("error", event.message);
     }
-  }, [addLog, refreshSources, updateRuntime]);
+  }, [addLog, refreshSources, stopStream, updateRuntime]);
 
   useEffect(() => {
     if (!desktopAvailableRef.current && !previewNoticeLogged) {
@@ -496,7 +574,7 @@ export function useStoryDeskRuntime() {
     void storyDeskRef.current.settings.get().then((nextSettings) => {
       setSettings(nextSettings);
       settingsRef.current = nextSettings;
-      setRuntimeState((state) => ({
+      updateRuntime((state) => ({
         ...createInitialRuntimeState(nextSettings, state.session),
         diagnostics: state.diagnostics
       }));
@@ -507,7 +585,8 @@ export function useStoryDeskRuntime() {
         setAgentSnapshot(snapshot);
       }
     });
-    void storyDeskRef.current.session.get().then((session) => {
+    void storyDeskRef.current.session.get().then(({ hostToken, ...session }) => {
+      hostTokenRef.current = hostToken;
       updateRuntime((state) => ({
         ...state,
         session,
@@ -619,4 +698,32 @@ export function useStoryDeskRuntime() {
       stopAgent
     }
   };
+}
+
+async function waitForDisplayStatus(
+  stateRef: { current: RuntimeState },
+  expected: RuntimeState["display"]["status"],
+  timeoutMs = 10_000
+) {
+  const startedAt = performance.now();
+  while (performance.now() - startedAt < timeoutMs) {
+    const display = stateRef.current.display;
+    if (display.status === expected) {
+      return;
+    }
+    if (display.status === "error") {
+      throw new Error(display.lastError ?? "Virtual display failed");
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+  }
+  throw new Error(`Timed out waiting for virtual display to become ${expected}`);
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isPermissionDeniedError(error: unknown) {
+  return error instanceof DOMException &&
+    (error.name === "NotAllowedError" || error.name === "SecurityError");
 }

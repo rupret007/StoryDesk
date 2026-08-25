@@ -9,6 +9,7 @@ export type {
   CastDevice,
   DisplayEvent,
   DisplaySource,
+  DesktopSession,
   RuntimeReceiverState,
   RuntimeRequest,
   RuntimeResponse,

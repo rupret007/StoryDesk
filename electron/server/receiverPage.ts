@@ -32,6 +32,7 @@ export function renderReceiverPage(token: string) {
       let lastFrames = 0;
       let lastBytes = 0;
       let lastStatsAt = performance.now();
+      let pendingCandidates = [];
 
       function setStatus(value) {
         status.textContent = value;
@@ -47,6 +48,11 @@ export function renderReceiverPage(token: string) {
         if (peer) {
           peer.close();
         }
+        clearInterval(statsTimer);
+        pendingCandidates = [];
+        lastFrames = 0;
+        lastBytes = 0;
+        lastStatsAt = performance.now();
         peer = new RTCPeerConnection({ iceServers: [] });
         peer.addTransceiver("video", { direction: "recvonly" });
         peer.ontrack = (event) => {
@@ -74,27 +80,46 @@ export function renderReceiverPage(token: string) {
 
       function connect() {
         ws = new WebSocket(wsProtocol + "//" + location.host + "/ws?role=receiver&token=" + token + "&id=" + receiverId);
-        ws.onopen = async () => {
+        ws.onopen = () => {
           retryMs = 500;
-          await negotiate();
+          setStatus("Waiting for stream");
         };
         ws.onmessage = async (event) => {
-          const message = JSON.parse(event.data);
-          if (message.type === "receiver-ping") {
-            send({ type: "receiver-pong", target: "host", data: message.data });
-            return;
-          }
-          if (message.type !== "signal") return;
-          if (message.data?.type === "answer") {
-            await peer.setRemoteDescription({ type: "answer", sdp: message.data.sdp });
-          }
-          if (message.data?.type === "ice" && message.data.candidate) {
-            await peer.addIceCandidate(message.data.candidate);
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === "host-ready") {
+              await negotiate();
+              return;
+            }
+            if (message.type === "receiver-ping") {
+              send({ type: "receiver-pong", target: "host", data: message.data });
+              return;
+            }
+            if (message.type !== "signal" || !peer) return;
+            if (message.data?.type === "answer") {
+              await peer.setRemoteDescription({ type: "answer", sdp: message.data.sdp });
+              const candidates = pendingCandidates.splice(0);
+              for (const candidate of candidates) {
+                await peer.addIceCandidate(candidate);
+              }
+            }
+            if (message.data?.type === "ice" && message.data.candidate) {
+              if (peer.remoteDescription) {
+                await peer.addIceCandidate(message.data.candidate);
+              } else {
+                pendingCandidates.push(message.data.candidate);
+              }
+            }
+          } catch (error) {
+            setStatus("Error");
+            console.error(error);
           }
         };
         ws.onclose = () => {
           setStatus("Reconnecting");
           clearInterval(statsTimer);
+          peer?.close();
+          peer = null;
           window.setTimeout(connect, retryMs);
           retryMs = Math.min(5000, retryMs * 1.7);
         };

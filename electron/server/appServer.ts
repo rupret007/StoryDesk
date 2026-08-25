@@ -3,7 +3,7 @@ import http from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { selectLanAddress } from "../lib/network";
 import { createSession, normalizeJoinCode } from "../lib/session";
-import type { Session } from "../lib/types";
+import type { DesktopSession } from "../lib/types";
 import { SignalingRoom, type SocketRole } from "../lib/signalingRoom";
 import { CastStreamHub } from "./castStreamHub";
 import { MjpegStreamHub } from "./mjpegStreamHub";
@@ -12,14 +12,14 @@ import { renderFallbackReceiverPage, renderReceiverPage, renderTvJoinPage } from
 export class AppServer {
   readonly castStreams = new CastStreamHub();
   readonly fallbackStreams = new MjpegStreamHub();
-  readonly session: Session;
+  readonly session: DesktopSession;
   private readonly room = new SignalingRoom();
   private readonly sockets = new Set<WebSocket>();
 
   private constructor(
     private readonly server: http.Server,
     private readonly wsServer: WebSocketServer,
-    session: Session
+    session: DesktopSession
   ) {
     this.session = session;
   }
@@ -33,7 +33,7 @@ export class AppServer {
     const instance = new AppServer(server, wsServer, createSession(host, port));
 
     app.get("/health", (_request, response) => {
-      response.json({ ok: true, session: instance.session });
+      response.set("Cache-Control", "no-store").json({ ok: true });
     });
 
     app.get("/r/:token", (request, response) => {
@@ -98,14 +98,22 @@ export class AppServer {
 
     server.on("upgrade", (request, socket, head) => {
       const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
-      if (url.pathname !== "/ws" || url.searchParams.get("token") !== instance.session.token) {
+      const roleValue = url.searchParams.get("role") ?? "receiver";
+      if (roleValue !== "host" && roleValue !== "receiver") {
+        socket.destroy();
+        return;
+      }
+      const role: SocketRole = roleValue;
+      const expectedToken = role === "host"
+        ? instance.session.hostToken
+        : instance.session.token;
+      if (url.pathname !== "/ws" || url.searchParams.get("token") !== expectedToken) {
         socket.destroy();
         return;
       }
 
       wsServer.handleUpgrade(request, socket, head, (socketInstance) => {
         instance.sockets.add(socketInstance);
-        const role = (url.searchParams.get("role") ?? "receiver") as SocketRole;
         const id =
           url.searchParams.get("id") ??
           (role === "host" ? "host" : cryptoRandomReceiverId());
@@ -151,8 +159,11 @@ export class AppServer {
 }
 
 function listen(server: http.Server) {
-  return new Promise<number>((resolve) => {
+  return new Promise<number>((resolve, reject) => {
+    const onError = (error: Error) => reject(error);
+    server.once("error", onError);
     server.listen(0, "0.0.0.0", () => {
+      server.off("error", onError);
       const address = server.address();
       resolve(typeof address === "object" && address ? address.port : 0);
     });

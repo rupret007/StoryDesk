@@ -23,6 +23,7 @@ export class AgentOrchestrator {
   private pendingToolCall: AgentToolCall | undefined;
   private transcript: AgentTranscriptEntry[] = [];
   private cancelled = false;
+  private steps = 0;
 
   constructor(
     private readonly commandBus: RuntimeCommandBus,
@@ -41,6 +42,7 @@ export class AgentOrchestrator {
 
   async startGoal(prompt: string, mode: AgentGoal["mode"] = "assist") {
     this.cancelled = false;
+    this.steps = 0;
     this.pendingToolCall = undefined;
     this.goal = {
       id: `goal-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -82,11 +84,10 @@ export class AgentOrchestrator {
 
     const settings = this.getSettings();
     const provider = this.createProvider(settings);
-    let steps = 0;
     let lastResult: AgentToolResult | null = null;
 
-    while (!this.cancelled && steps < settings.maxAutonomousSteps) {
-      steps += 1;
+    while (!this.cancelled && this.steps < settings.maxAutonomousSteps) {
+      this.steps += 1;
       try {
         const state = await this.commandBus.requestState();
         const plan = await provider.plan({

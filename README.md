@@ -20,6 +20,8 @@ npm run dev
 
 The app starts a local receiver server automatically. Use the QR code or receiver URL shown in the app for browser receivers.
 
+Closing the StoryDesk window stops active sessions, removes the virtual display, and quits the prototype.
+
 ## Fire Stick / TV Browser Receiver
 
 For Fire TV and Fire Stick devices, open Amazon Silk or another TV browser and enter the TV URL shown in StoryDesk:
@@ -41,10 +43,13 @@ Compatibility mode is slower and lower bandwidth than WebRTC, but it uses a very
 ## Build And Test
 
 ```bash
+npx playwright install chromium
 npm run build
 npm test
 npm run test:e2e
 ```
+
+The receiver URL and six-character TV code grant access to the current local session. Treat them as private and use StoryDesk only on a trusted LAN. Stopping the stream or quitting the app closes active Cast/fallback streams and clears retained fallback frames.
 
 ## Current MVP Bounds
 
@@ -53,7 +58,7 @@ npm run test:e2e
 - Browser receiver via WebRTC
 - Browser receiver status, reconnect, ping latency, and basic bitrate/frame metrics
 - Fire Stick and TV-browser join flow via `/tv`, six-character codes, direct `/go/<code>` links, and MJPEG compatibility receiver fallback
-- Provider-pluggable Autopilot with a deterministic local provider by default
+- Deterministic local Autopilot by default, with a redacting OpenAI-compatible adapter foundation; credential entry and secure credential storage are not yet productized
 - Chromecast path uses Cast discovery/control plus a chunked WebM live endpoint fed by Electron's MediaRecorder
 - No DriverKit system extension
 - No Mac App Store packaging

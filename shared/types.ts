@@ -32,6 +32,10 @@ export type Session = {
   status: "ready" | "error";
 };
 
+export type DesktopSession = Session & {
+  hostToken: string;
+};
+
 export type DisplaySource = {
   id: string;
   name: string;

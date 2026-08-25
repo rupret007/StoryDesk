@@ -4,6 +4,7 @@ import { hydrateToolCall, requiresApproval, validateToolName } from "../electron
 describe("agent tool policy", () => {
   it("requires approval for mutating tools in manual mode", () => {
     expect(requiresApproval("startVirtualDisplay", "manual")).toBe(true);
+    expect(requiresApproval("openReceiverUrl", "manual")).toBe(true);
     expect(requiresApproval("collectDiagnostics", "manual")).toBe(false);
   });
 

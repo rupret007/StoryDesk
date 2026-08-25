@@ -16,6 +16,7 @@ const mutatingTools = new Set<AgentToolName>([
   "stopVirtualDisplay",
   "startBrowserStream",
   "stopStream",
+  "openReceiverUrl",
   "scanCastDevices"
 ]);
 

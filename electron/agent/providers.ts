@@ -55,6 +55,9 @@ export class LocalDeterministicProvider implements AgentProvider {
     }
 
     if (prompt.includes("diagnose") || prompt.includes("health")) {
+      if (called.has("collectDiagnostics")) {
+        return done("Diagnostics collected.");
+      }
       return tool("collectDiagnostics", "Collect the current runtime snapshot and recent logs.");
     }
 
@@ -119,7 +122,7 @@ export class OpenAICompatibleProvider implements AgentProvider {
             role: "user",
             content: JSON.stringify({
               goal: context.goal.prompt,
-              state: context.state,
+              state: redactRuntimeState(context.state),
               transcript: context.transcript.slice(-10)
             })
           }
@@ -153,6 +156,43 @@ export class OpenAICompatibleProvider implements AgentProvider {
   async summarize(result: AgentToolResult | null) {
     return this.fallback.summarize(result);
   }
+}
+
+function redactRuntimeState(state: RuntimeState) {
+  return {
+    display: {
+      status: state.display.status,
+      config: state.display.config,
+      hasError: Boolean(state.display.lastError)
+    },
+    stream: {
+      status: state.stream.status,
+      settings: state.stream.settings,
+      hasSource: Boolean(state.stream.sourceId),
+      hasError: Boolean(state.stream.lastError)
+    },
+    receiver: {
+      status: state.receiver.status,
+      connectedCount: state.receiver.connectedCount,
+      latencyMs: state.receiver.latencyMs,
+      bitrateKbps: state.receiver.bitrateKbps,
+      frameRate: state.receiver.frameRate,
+      hasError: Boolean(state.receiver.lastError)
+    },
+    cast: {
+      status: state.cast.status,
+      deviceCount: state.cast.devices.length,
+      hasSelection: Boolean(state.cast.selectedDeviceId),
+      hasError: Boolean(state.cast.lastError)
+    },
+    permissions: state.permissions,
+    sessionReady: state.session?.status === "ready",
+    sourceCount: state.sources.length,
+    diagnostics: {
+      logCount: state.diagnostics.logs.length,
+      lastUpdatedAt: state.diagnostics.lastUpdatedAt
+    }
+  };
 }
 
 function tool(toolName: AgentToolName, reason: string): AgentPlan {

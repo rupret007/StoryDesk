@@ -12,7 +12,8 @@ describe("session", () => {
   });
 
   it("builds local receiver, cast, and websocket URLs", () => {
-    const session = createSession("192.168.1.10", 48000, "abc123", "FIRE42");
+    const session = createSession("192.168.1.10", 48000, "abc123", "FIRE42", "host456");
+    expect(session.hostToken).toBe("host456");
     expect(session.receiverUrl).toBe("http://192.168.1.10:48000/r/abc123");
     expect(session.tvUrl).toBe("http://192.168.1.10:48000/tv");
     expect(session.joinCode).toBe("FIRE42");

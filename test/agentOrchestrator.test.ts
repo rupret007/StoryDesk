@@ -102,4 +102,34 @@ describe("AgentOrchestrator", () => {
     expect(orchestrator.getSnapshot().status).toBe("waiting-approval");
     expect(events.find((event) => event.type === "approval-required")).toBeTruthy();
   });
+
+  it("collects diagnostics once and completes", async () => {
+    const tools: string[] = [];
+    let complete!: () => void;
+    const completePromise = new Promise<void>((resolve) => {
+      complete = resolve;
+    });
+    const fakeBus = {
+      requestState: async () => createInitialRuntimeState(),
+      executeTool: async (toolCall: AgentToolCall) => {
+        tools.push(toolCall.tool);
+        return { id: toolCall.id, ok: true };
+      }
+    } as unknown as RuntimeCommandBus;
+    const orchestrator = new AgentOrchestrator(
+      fakeBus,
+      () => ({ ...defaultAgentSettings, approvalMode: "trusted" }),
+      (event) => {
+        if (event.type === "complete") {
+          complete();
+        }
+      }
+    );
+
+    await orchestrator.startGoal("diagnose StoryDesk health");
+    await completePromise;
+
+    expect(tools).toEqual(["collectDiagnostics"]);
+    expect(orchestrator.getSnapshot().status).toBe("complete");
+  });
 });
