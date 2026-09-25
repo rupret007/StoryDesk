@@ -49,6 +49,19 @@ npm test
 npm run test:e2e
 ```
 
+CI runs on every pull request and on pushes to `main`. The workflow currently enforces:
+
+- Node.js 22 dependency install with `npm ci`
+- Typecheck (`npm run typecheck`) and unit tests (`npm test`) on Ubuntu
+- Renderer, Electron, and Swift helper builds on macOS
+
+Before opening a PR, run at least:
+
+```bash
+npm run typecheck
+npm test
+```
+
 The receiver URL and six-character TV code grant access to the current local session. Treat them as private and use StoryDesk only on a trusted LAN. Stopping the stream or quitting the app closes active Cast/fallback streams and clears retained fallback frames.
 
 ## Current MVP Bounds
