@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Typecheck and unit tests run on Linux (fast, no display needed).
+  # Fast correctness checks that do not require a display toolchain.
   typecheck-and-test:
     name: Typecheck & unit tests
     runs-on: ubuntu-latest
@@ -34,9 +34,30 @@ jobs:
       - name: Unit tests
         run: npm test
 
+  # Keep renderer/electron builds green on Linux so cross-platform TS/Vite
+  # regressions fail quickly without waiting for macOS helper compilation.
+  build-linux:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build:renderer
+
+      - name: Build Electron main process
+        run: npm run build:electron
+
   # The Swift virtual-display helper requires macOS + Xcode toolchain.
-  # build:renderer and build:electron are verified here as a bonus since
-  # npm ci on macos is already paid for by the helper step.
+  # Helper build stays in macOS where swiftc is available.
   build-macos:
     name: Build (macOS)
     runs-on: macos-latest
