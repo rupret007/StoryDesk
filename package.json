@@ -11,6 +11,7 @@
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:helper": "bash scripts/build-helper.sh",
+    "check:focused-tests": "node scripts/check-focused-tests.mjs",
     "start": "npm run build && electron .",
     "test": "vitest run --config vitest.config.ts",
     "test:e2e": "playwright test",
