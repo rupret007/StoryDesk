@@ -28,11 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Guard against focused tests
+        run: npm run check:focused-tests
+
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests with coverage
+        run: npm run test:coverage
 
   # Keep renderer/electron builds green on Linux so cross-platform TS/Vite
   # regressions fail quickly without waiting for macOS helper compilation.
