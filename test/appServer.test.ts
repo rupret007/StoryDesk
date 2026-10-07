@@ -48,6 +48,32 @@ describe("AppServer signaling", () => {
     await server.stop();
   });
 
+  it("assigns distinct ids to receivers that omit one", async () => {
+    const server = await AppServer.start();
+    const host = new WebSocket(`${server.session.wsUrl}?role=host&token=${server.session.hostToken}`);
+    const first = new WebSocket(`${server.session.wsUrl}?role=receiver&token=${server.session.token}`);
+    const second = new WebSocket(`${server.session.wsUrl}?role=receiver&token=${server.session.token}`);
+    const ids: string[] = [];
+
+    host.on("message", (raw) => {
+      const message = JSON.parse(raw.toString()) as { type?: string; receiverId?: string };
+      if (message.type === "receiver-joined" && message.receiverId) {
+        ids.push(message.receiverId);
+      }
+    });
+
+    await waitForOpen(host);
+    await waitForOpen(first);
+    await waitForOpen(second);
+    await waitFor(() => ids.length >= 2);
+
+    expect(new Set(ids).size).toBe(ids.length);
+    host.close();
+    first.close();
+    second.close();
+    await server.stop();
+  });
+
   it("rejects invalid websocket tokens", async () => {
     const server = await AppServer.start();
     const ws = new WebSocket(`${server.session.wsUrl}?role=host&token=${server.session.token}`);

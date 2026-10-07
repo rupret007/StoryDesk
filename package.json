@@ -2,8 +2,12 @@
   "name": "storydesk",
   "version": "0.1.0",
   "private": true,
+  "productName": "StoryDesk",
   "description": "Local macOS virtual display streaming to browser receivers and Chromecast devices.",
   "main": "dist-electron/electron/main.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "npm run build:helper && concurrently -k \"vite --host 127.0.0.1\" \"npm:dev:electron\"",
     "dev:electron": "wait-on http://127.0.0.1:5173 && npm run build:electron && STORYDESK_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
@@ -36,6 +40,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "electron": "^33.2.1",
+    "jsdom": "^30.1.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vitest": "^2.1.8",
