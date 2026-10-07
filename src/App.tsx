@@ -14,7 +14,7 @@ import {
   XCircle
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentEvent, AgentSettings, AgentToolCall } from "./types";
 import { useStoryDeskRuntime } from "./runtime/useStoryDeskRuntime";
 
@@ -42,9 +42,14 @@ function App() {
     () => runtimeState.sources.find((source) => source.id === selectedSourceId),
     [runtimeState.sources, selectedSourceId]
   );
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    mainRef.current?.focus();
+  }, []);
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" ref={mainRef} tabIndex={-1} aria-label="StoryDesk">
       <section className="topbar">
         <div>
           <h1>StoryDesk</h1>
@@ -60,7 +65,7 @@ function App() {
       </section>
 
       {!desktopAvailable && (
-        <section className="notice-band">
+        <section className="notice-band" role="status">
           Browser preview mode. Use the Electron StoryDesk window for virtual display, streaming, Cast, and Autopilot controls.
         </section>
       )}
@@ -69,8 +74,9 @@ function App() {
         <div className="preview-panel">
           <div className="preview-toolbar">
             <div className="source-select">
-              <Monitor size={16} />
+              <Monitor size={16} aria-hidden="true" />
               <select
+                aria-label="Capture source"
                 value={selectedSourceId}
                 onChange={(event) => actions.setSelectedSourceId(event.target.value)}
               >
@@ -83,15 +89,17 @@ function App() {
               </select>
             </div>
             <button
+              type="button"
               className="icon-button"
               title="Refresh sources"
+              aria-label="Refresh sources"
               onClick={() => void actions.refreshSources()}
             >
-              <RefreshCw size={18} />
+              <RefreshCw size={18} aria-hidden="true" />
             </button>
           </div>
           <div className="video-frame">
-            <video ref={videoRef} autoPlay muted playsInline />
+            <video ref={videoRef} autoPlay muted playsInline aria-label="Virtual display preview" />
             {!streamLive && (
               <div className="empty-state">
                 <MonitorUp size={36} />
@@ -115,7 +123,13 @@ function App() {
                 [2560, 1440]
               ].map(([width, height]) => (
                 <button
+                  type="button"
                   key={`${width}x${height}`}
+                  aria-label={`Virtual display ${width} by ${height}`}
+                  aria-pressed={
+                    settings.display.width === width &&
+                    settings.display.height === height
+                  }
                   className={
                     settings.display.width === width &&
                     settings.display.height === height
@@ -140,14 +154,22 @@ function App() {
             </label>
             <div className="button-row">
               <button
+                type="button"
+                aria-label="Start virtual display"
                 onClick={() => void actions.startDisplay()}
                 disabled={!desktopAvailable || runtimeState.display.status === "starting" || displayReady}
               >
-                <Power size={17} />
+                <Power size={17} aria-hidden="true" />
                 Start
               </button>
-              <button className="secondary" onClick={() => void actions.stopDisplay()} disabled={!desktopAvailable || !displayReady}>
-                <Square size={17} />
+              <button
+                type="button"
+                className="secondary"
+                aria-label="Stop virtual display"
+                onClick={() => void actions.stopDisplay()}
+                disabled={!desktopAvailable || !displayReady}
+              >
+                <Square size={17} aria-hidden="true" />
                 Stop
               </button>
             </div>
@@ -189,12 +211,23 @@ function App() {
               <span>{runtimeState.receiver.frameRate ?? settings.stream.fps} fps</span>
             </div>
             <div className="button-row">
-              <button onClick={() => void actions.startStream()} disabled={!desktopAvailable || !displayReady || streamLive || streamStarting}>
-                <Play size={17} />
+              <button
+                type="button"
+                aria-label="Start stream"
+                onClick={() => void actions.startStream()}
+                disabled={!desktopAvailable || !displayReady || streamLive || streamStarting}
+              >
+                <Play size={17} aria-hidden="true" />
                 Start
               </button>
-              <button className="secondary" onClick={() => void actions.stopStream()} disabled={!desktopAvailable || (!streamLive && !streamStarting)}>
-                <Square size={17} />
+              <button
+                type="button"
+                className="secondary"
+                aria-label="Stop stream"
+                onClick={() => void actions.stopStream()}
+                disabled={!desktopAvailable || (!streamLive && !streamStarting)}
+              >
+                <Square size={17} aria-hidden="true" />
                 Stop
               </button>
             </div>
@@ -207,14 +240,24 @@ function App() {
             </div>
             {runtimeState.session && (
               <>
-                <QRCodeSVG value={runtimeState.session.receiverUrl} size={126} />
+                <QRCodeSVG value={runtimeState.session.receiverUrl} size={126} title="Receiver URL QR code" />
                 <div className="button-row full-row">
-                  <button className="secondary" onClick={() => void actions.copyReceiverUrl()}>
-                    <Copy size={17} />
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-label="Copy receiver URL"
+                    onClick={() => void actions.copyReceiverUrl()}
+                  >
+                    <Copy size={17} aria-hidden="true" />
                     Copy
                   </button>
-                  <button className="secondary" onClick={() => void actions.openReceiverUrl()}>
-                    <Monitor size={17} />
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-label="Open receiver URL"
+                    onClick={() => void actions.openReceiverUrl()}
+                  >
+                    <Monitor size={17} aria-hidden="true" />
                     Open
                   </button>
                 </div>
@@ -234,16 +277,31 @@ function App() {
                 </div>
                 <div className="tv-url">{runtimeState.session.tvUrl}</div>
                 <div className="button-row full-row">
-                  <button className="secondary" onClick={() => void actions.copyTvUrl()}>
-                    <Copy size={17} />
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-label="Copy TV join details"
+                    onClick={() => void actions.copyTvUrl()}
+                  >
+                    <Copy size={17} aria-hidden="true" />
                     Copy
                   </button>
-                  <button className="secondary" onClick={() => void actions.openTvUrl()}>
-                    <Monitor size={17} />
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-label="Open TV join page"
+                    onClick={() => void actions.openTvUrl()}
+                  >
+                    <Monitor size={17} aria-hidden="true" />
                     Open
                   </button>
-                  <button className="secondary" onClick={() => void actions.openFallbackUrl()}>
-                    <Wifi size={17} />
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-label="Open compatibility receiver"
+                    onClick={() => void actions.openFallbackUrl()}
+                  >
+                    <Wifi size={17} aria-hidden="true" />
                     Compat
                   </button>
                 </div>
@@ -257,8 +315,9 @@ function App() {
               <h2>Chromecast</h2>
             </div>
             <div className="source-select">
-              <Cast size={16} />
+              <Cast size={16} aria-hidden="true" />
               <select
+                aria-label="Chromecast device"
                 value={selectedDeviceId}
                 onChange={(event) => actions.setSelectedDeviceId(event.target.value)}
               >
@@ -271,19 +330,33 @@ function App() {
               </select>
             </div>
             <div className="button-row">
-              <button className="secondary" onClick={() => void actions.discoverCastDevices()} disabled={!desktopAvailable}>
-                <RefreshCw size={17} />
+              <button
+                type="button"
+                className="secondary"
+                aria-label="Scan Chromecast devices"
+                onClick={() => void actions.discoverCastDevices()}
+                disabled={!desktopAvailable}
+              >
+                <RefreshCw size={17} aria-hidden="true" />
                 Scan
               </button>
               <button
+                type="button"
+                aria-label="Start Chromecast"
                 onClick={() => void actions.connectCast()}
                 disabled={!desktopAvailable || !streamLive || !selectedDeviceId || castConnected}
               >
-                <Cast size={17} />
+                <Cast size={17} aria-hidden="true" />
                 Cast
               </button>
-              <button className="secondary" onClick={() => void actions.disconnectCast()} disabled={!desktopAvailable || !castConnected}>
-                <XCircle size={17} />
+              <button
+                type="button"
+                className="secondary"
+                aria-label="End Chromecast"
+                onClick={() => void actions.disconnectCast()}
+                disabled={!desktopAvailable || !castConnected}
+              >
+                <XCircle size={17} aria-hidden="true" />
                 End
               </button>
             </div>
@@ -345,10 +418,12 @@ function AutopilotPanel({
       </div>
       <input
         className="goal-input"
+        aria-label="Autopilot goal"
         value={prompt}
         onChange={(event) => setPrompt(event.target.value)}
       />
       <select
+        aria-label="Autopilot provider"
         value={agentSettings.provider}
         onChange={(event) =>
           void onSettingsChange({
@@ -361,6 +436,7 @@ function AutopilotPanel({
         <option value="openai-compatible">OpenAI-compatible</option>
       </select>
       <select
+        aria-label="Approval mode"
         value={agentSettings.approvalMode}
         onChange={(event) =>
           void onSettingsChange({
@@ -373,16 +449,33 @@ function AutopilotPanel({
         <option value="trusted">Trusted mode</option>
       </select>
       <div className="button-row">
-        <button onClick={() => void onStart(prompt)} disabled={!desktopAvailable || snapshot.status === "running"}>
-          <Play size={17} />
+        <button
+          type="button"
+          aria-label="Run Autopilot"
+          onClick={() => void onStart(prompt)}
+          disabled={!desktopAvailable || snapshot.status === "running"}
+        >
+          <Play size={17} aria-hidden="true" />
           Run
         </button>
-        <button className="secondary" onClick={() => void onStop()} disabled={snapshot.status === "idle"}>
-          <PauseCircle size={17} />
+        <button
+          type="button"
+          className="secondary"
+          aria-label="Stop Autopilot"
+          onClick={() => void onStop()}
+          disabled={snapshot.status === "idle"}
+        >
+          <PauseCircle size={17} aria-hidden="true" />
           Stop
         </button>
-        <button className="secondary" onClick={() => void onApprove()} disabled={!pendingTool}>
-          <CheckCircle2 size={17} />
+        <button
+          type="button"
+          className="secondary"
+          aria-label="Approve Autopilot tool"
+          onClick={() => void onApprove()}
+          disabled={!pendingTool}
+        >
+          <CheckCircle2 size={17} aria-hidden="true" />
           Approve
         </button>
       </div>
@@ -428,8 +521,12 @@ function formatAgentEvent(event: AgentEvent) {
 
 function StatusPill({ label, active }: { label: string; active: boolean }) {
   return (
-    <span className={active ? "status-pill active" : "status-pill"}>
-      <span />
+    <span
+      className={active ? "status-pill active" : "status-pill"}
+      role="status"
+      aria-label={`${label} ${active ? "on" : "off"}`}
+    >
+      <span aria-hidden="true" />
       {label}
     </span>
   );

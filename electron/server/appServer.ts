@@ -2,7 +2,7 @@ import express from "express";
 import http from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { selectLanAddress } from "../lib/network";
-import { createSession, normalizeJoinCode } from "../lib/session";
+import { createReceiverId, createSession, normalizeJoinCode } from "../lib/session";
 import type { DesktopSession } from "../lib/types";
 import { SignalingRoom, type SocketRole } from "../lib/signalingRoom";
 import { CastStreamHub } from "./castStreamHub";
@@ -116,7 +116,7 @@ export class AppServer {
         instance.sockets.add(socketInstance);
         const id =
           url.searchParams.get("id") ??
-          (role === "host" ? "host" : cryptoRandomReceiverId());
+          (role === "host" ? "host" : createReceiverId());
         const client = {
           id,
           role,
@@ -170,6 +170,3 @@ function listen(server: http.Server) {
   });
 }
 
-function cryptoRandomReceiverId() {
-  return Math.random().toString(36).slice(2, 12);
-}

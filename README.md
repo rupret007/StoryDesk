@@ -51,9 +51,10 @@ npm run test:e2e
 
 CI runs on every pull request and on pushes to `main`. The workflow currently enforces:
 
-- Node.js 22 dependency install with `npm ci`
-- Typecheck (`npm run typecheck`) and unit tests (`npm test`) on Ubuntu
-- Renderer, Electron, and Swift helper builds on macOS
+- Node.js 22 from `.nvmrc` with `npm ci` and the npm cache
+- Typecheck (`npm run typecheck`) and unit tests (`npm test`) on Ubuntu 24.04
+- Renderer and Electron compile on Linux
+- Renderer, Electron, and unsigned Swift helper builds on macOS (no codesign, notarize, or Apple secrets)
 
 Before opening a PR, run at least:
 

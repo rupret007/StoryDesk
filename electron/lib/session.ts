@@ -28,6 +28,10 @@ export function createSessionToken() {
   return crypto.randomBytes(9).toString("base64url");
 }
 
+export function createReceiverId() {
+  return createSessionToken();
+}
+
 export function createJoinCode(length = 6) {
   const bytes = crypto.randomBytes(length);
   return Array.from(bytes)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createJoinCode,
+  createReceiverId,
   createSession,
   createSessionToken,
   normalizeJoinCode
@@ -9,6 +10,14 @@ import {
 describe("session", () => {
   it("creates URL-safe tokens", () => {
     expect(createSessionToken()).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+
+  it("creates distinct cryptographic receiver ids", () => {
+    const ids = new Set(Array.from({ length: 200 }, () => createReceiverId()));
+    expect(ids.size).toBe(200);
+    for (const id of ids) {
+      expect(id).toMatch(/^[A-Za-z0-9_-]+$/);
+    }
   });
 
   it("builds local receiver, cast, and websocket URLs", () => {

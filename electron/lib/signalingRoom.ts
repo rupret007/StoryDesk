@@ -30,9 +30,15 @@ export class SignalingRoom {
     this.host?.send({ type: "receiver-joined", receiverId: client.id });
   }
 
-  unregister(client: Pick<Client, "id" | "role">) {
-    if (client.role === "host" && this.host?.id === client.id) {
-      this.host = null;
+  unregister(client: Client) {
+    if (client.role === "host") {
+      if (this.host === client) {
+        this.host = null;
+      }
+      return;
+    }
+
+    if (this.receivers.get(client.id) !== client) {
       return;
     }
 

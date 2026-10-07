@@ -51,6 +51,17 @@ button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
+.app-shell:focus {
+  outline: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #225c4d;
+  outline-offset: 2px;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
