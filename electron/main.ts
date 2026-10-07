@@ -3,11 +3,14 @@ import path from "node:path";
 import { AppServer } from "./server/appServer";
 import { CastController } from "./server/castController";
 import { VirtualDisplayHelper } from "./server/virtualDisplayHelper";
+import { APP_DISPLAY_NAME, MAIN_WINDOW_BASE } from "./lib/appIdentity";
 import { SettingsStore } from "./lib/settingsStore";
 import { RuntimeCommandBus } from "./lib/runtimeCommandBus";
 import { AgentOrchestrator } from "./agent/agentOrchestrator";
 import { defaultAgentSettings, defaultAppSettings } from "../shared/runtimeState";
 import type { AgentSettings, AppSettings } from "./lib/types";
+
+app.setName(APP_DISPLAY_NAME);
 
 let mainWindow: BrowserWindow | null = null;
 let appServer: AppServer | null = null;
@@ -28,12 +31,7 @@ function rendererUrl() {
 
 async function createWindow() {
   const window = new BrowserWindow({
-    width: 1220,
-    height: 820,
-    minWidth: 980,
-    minHeight: 720,
-    title: "StoryDesk",
-    backgroundColor: "#f4f1ea",
+    ...MAIN_WINDOW_BASE,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -48,6 +46,10 @@ async function createWindow() {
   });
 
   await window.loadURL(rendererUrl());
+  if (!window.isDestroyed()) {
+    window.show();
+    window.focus();
+  }
 }
 
 function sendDisplayEvent(event: unknown) {

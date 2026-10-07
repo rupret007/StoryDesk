@@ -16,13 +16,13 @@ jobs:
   # Fast correctness checks that do not require a display toolchain.
   typecheck-and-test:
     name: Typecheck & unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -38,13 +38,13 @@ jobs:
   # regressions fail quickly without waiting for macOS helper compilation.
   build-linux:
     name: Build (Linux)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -57,16 +57,18 @@ jobs:
         run: npm run build:electron
 
   # The Swift virtual-display helper requires macOS + Xcode toolchain.
-  # Helper build stays in macOS where swiftc is available.
+  # PR CI compiles the helper unsigned (no codesign, notarize, or Apple secrets).
   build-macos:
     name: Build (macOS)
     runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -78,5 +80,5 @@ jobs:
       - name: Build Electron main process
         run: npm run build:electron
 
-      - name: Build Swift helper
+      - name: Build Swift helper (unsigned)
         run: npm run build:helper

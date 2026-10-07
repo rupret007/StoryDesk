@@ -26,11 +26,11 @@ test("app renders safely outside Electron", async ({ page }) => {
   await page.goto("http://127.0.0.1:5174/");
 
   await expect(page.getByRole("heading", { name: "StoryDesk" })).toBeVisible();
+  await expect(page.getByRole("main", { name: "StoryDesk" })).toBeVisible();
   await expect(page.locator(".notice-band")).toContainText("Browser preview mode");
-  const startButtons = page.getByRole("button", { name: "Start" });
-  await expect(startButtons).toHaveCount(2);
-  await expect(startButtons.nth(0)).toBeDisabled();
-  await expect(startButtons.nth(1)).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Start virtual display" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Start stream" })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: "Capture source" })).toBeVisible();
   expect(pageErrors).toEqual([]);
 });
 
