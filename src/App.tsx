@@ -17,6 +17,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentEvent, AgentSettings, AgentToolCall } from "./types";
 import { useStoryDeskRuntime } from "./runtime/useStoryDeskRuntime";
+import { formatFpsChip, formatLatencyChip, formatReceiverCount } from "./streamMetrics";
 
 function App() {
   const {
@@ -192,7 +193,7 @@ function App() {
               />
             </label>
             <label>
-              Bitrate
+              Bitrate (kbps)
               <input
                 type="number"
                 min={1500}
@@ -206,9 +207,9 @@ function App() {
               />
             </label>
             <div className="metrics-row">
-              <span>{runtimeState.receiver.connectedCount} receiver</span>
-              <span>{runtimeState.receiver.latencyMs ?? "-"} ms</span>
-              <span>{runtimeState.receiver.frameRate ?? settings.stream.fps} fps</span>
+              <span>{formatReceiverCount(runtimeState.receiver.connectedCount)}</span>
+              <span>{formatLatencyChip(streamLive, runtimeState.receiver.latencyMs)}</span>
+              <span>{formatFpsChip(streamLive, runtimeState.receiver.frameRate)}</span>
             </div>
             <div className="button-row">
               <button
