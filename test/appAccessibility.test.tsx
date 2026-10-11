@@ -37,8 +37,13 @@ describe("main window accessibility", () => {
     expect(container.querySelector('[aria-label="Virtual display preview"]')).toBeTruthy();
     expect(container.querySelector('[aria-label="Start virtual display"]')).toBeTruthy();
     expect(container.querySelector('[aria-label="Start stream"]')).toBeTruthy();
-    expect(container.querySelector('[aria-label="Copy receiver URL"]')).toBeTruthy();
-    expect(container.querySelector('[aria-label="Copy TV join details"]')).toBeTruthy();
+    expect(container.querySelector('[aria-label="Copy receiver URL"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Copy TV join details"]')).toBeNull();
+    const joinNotes = [...container.querySelectorAll(".join-preview-note")];
+    expect(joinNotes.length).toBeGreaterThan(0);
+    expect(joinNotes.every((note) => note.textContent === "Join link appears in the Electron app")).toBe(
+      true
+    );
     expect(container.querySelector('[aria-label="Chromecast device"]')).toBeTruthy();
     expect(container.querySelector('[aria-label="Autopilot goal"]')).toBeTruthy();
     expect(container.querySelector('[aria-label="Desktop off"]')).toBeTruthy();
