@@ -238,7 +238,9 @@ function App() {
               <CheckCircle2 size={18} />
               <h2>Receiver</h2>
             </div>
-            {runtimeState.session && (
+            {!desktopAvailable ? (
+              <PreviewJoinNote />
+            ) : runtimeState.session ? (
               <>
                 <QRCodeSVG value={runtimeState.session.receiverUrl} size={126} title="Receiver URL QR code" />
                 <div className="button-row full-row">
@@ -262,7 +264,7 @@ function App() {
                   </button>
                 </div>
               </>
-            )}
+            ) : null}
           </section>
 
           <section className="panel-section tv-section">
@@ -270,7 +272,9 @@ function App() {
               <Monitor size={18} />
               <h2>TV / Fire Stick</h2>
             </div>
-            {runtimeState.session && (
+            {!desktopAvailable ? (
+              <PreviewJoinNote />
+            ) : runtimeState.session ? (
               <>
                 <div className="tv-code" aria-label="TV join code">
                   {runtimeState.session.joinCode}
@@ -306,7 +310,7 @@ function App() {
                   </button>
                 </div>
               </>
-            )}
+            ) : null}
           </section>
 
           <section className="panel-section">
@@ -517,6 +521,10 @@ function formatAgentEvent(event: AgentEvent) {
     return `Proposed: ${event.toolCall.tool}`;
   }
   return event.type;
+}
+
+function PreviewJoinNote() {
+  return <p className="join-preview-note">Join link appears in the Electron app</p>;
 }
 
 function StatusPill({ label, active }: { label: string; active: boolean }) {
