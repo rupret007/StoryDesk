@@ -196,6 +196,34 @@ export function renderFallbackReceiverPage(token: string) {
 </html>`;
 }
 
+export function renderUnknownSessionPage() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StoryDesk</title>
+    <style>
+      :root { color: #f7f2e9; background: #07120f; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { align-items: center; background: radial-gradient(circle at 50% 15%, #183f36, #07120f 58%); display: flex; min-height: 100vh; justify-content: center; margin: 0; padding: 28px; }
+      main { max-width: 760px; text-align: center; width: 100%; }
+      h1 { font-size: clamp(42px, 8vw, 82px); line-height: 1; margin: 0 0 18px; }
+      p { color: #cbd8d2; font-size: clamp(18px, 2.8vw, 28px); margin: 0 0 28px; }
+      a.action { background: #8fd3bb; border-radius: 10px; color: #07120f; display: inline-block; font-size: clamp(24px, 4vw, 40px); font-weight: 900; line-height: 1.2; min-height: 72px; padding: 18px 28px; text-decoration: none; }
+      a.action:focus-visible { outline: 3px solid #f7f2e9; outline-offset: 4px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>StoryDesk</h1>
+      <p>This link is not a live session. Open a new QR or TV code from the app.</p>
+      <a class="action" href="/tv">Enter a TV code</a>
+    </main>
+  </body>
+</html>`;
+}
+
 export function renderTvJoinPage(session: Session, errorMessage = "") {
   const safeError = escapeHtml(errorMessage);
   return `<!doctype html>
