@@ -18,7 +18,7 @@ export function renderReceiverPage(token: string) {
   </head>
   <body>
     <video id="screen" autoplay playsinline></video>
-    <div id="status">Connecting</div>
+    <div id="status" role="status">Connecting to StoryDesk</div>
     <script>
       const token = ${safeToken};
       const status = document.getElementById("status");
@@ -82,7 +82,7 @@ export function renderReceiverPage(token: string) {
         ws = new WebSocket(wsProtocol + "//" + location.host + "/ws?role=receiver&token=" + token + "&id=" + receiverId);
         ws.onopen = () => {
           retryMs = 500;
-          setStatus("Waiting for stream");
+          setStatus("Waiting for StoryDesk to start the stream");
         };
         ws.onmessage = async (event) => {
           try {
@@ -175,8 +175,8 @@ export function renderFallbackReceiverPage(token: string) {
     </style>
   </head>
   <body>
-    <img id="screen" src="/fallback/${safeToken}/live.mjpg" alt="" />
-    <div id="status">Waiting</div>
+    <img id="screen" src="/fallback/${safeToken}/live.mjpg" alt="StoryDesk compatibility stream" />
+    <div id="status" role="status">Waiting for StoryDesk to start the stream</div>
     <script>
       const image = document.getElementById("screen");
       const status = document.getElementById("status");
@@ -186,7 +186,7 @@ export function renderFallbackReceiverPage(token: string) {
       window.setInterval(async () => {
         try {
           await fetch("/health", { cache: "no-store" });
-          if (status.textContent === "Reconnecting") setStatus("Waiting");
+          if (status.textContent === "Reconnecting") setStatus("Waiting for StoryDesk to start the stream");
         } catch {
           setStatus("Offline");
         }
