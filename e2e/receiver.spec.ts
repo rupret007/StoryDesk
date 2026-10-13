@@ -68,7 +68,14 @@ test("invalid receiver token returns 404", async ({ page }) => {
   const response = await page.goto(url.toString());
 
   expect(response?.status()).toBe(404);
-  await expect(page.locator("body")).toContainText("Unknown session");
+  await expect(page.getByRole("heading", { name: "StoryDesk" })).toBeVisible();
+  await expect(page.getByText("This link is not a live session. Open a new QR or TV code from the app.")).toBeVisible();
+
+  url.pathname = "/fallback/not-the-token";
+  const fallbackResponse = await page.goto(url.toString());
+  expect(fallbackResponse?.status()).toBe(404);
+  await expect(page.getByText("This link is not a live session. Open a new QR or TV code from the app.")).toBeVisible();
+
   await server.stop();
 });
 
