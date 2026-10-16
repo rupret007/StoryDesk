@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { extname, join } from "node:path";
+import { extname, join, relative } from "node:path";
+import ts from "typescript";
 
 const ROOT_DIR = process.cwd();
 const ALLOWED_EXTENSIONS = new Set([
@@ -11,6 +12,8 @@ const ALLOWED_EXTENSIONS = new Set([
   ".tsx",
   ".mjs",
   ".cjs",
+  ".mts",
+  ".cts",
 ]);
 const SKIP_DIRS = new Set([
   ".git",
@@ -22,14 +25,8 @@ const SKIP_DIRS = new Set([
   "out",
   "build",
 ]);
-const SKIP_FILES = new Set(["scripts/check-focused-tests.mjs"]);
-
-const CHECKS = [
-  { pattern: /\b(?:describe|context)\.only\s*\(/g, label: "describe.only(" },
-  { pattern: /\b(?:it|test)\.only\s*\(/g, label: "it/test.only(" },
-  { pattern: /\bfdescribe\s*\(/g, label: "fdescribe(" },
-  { pattern: /\bfit\s*\(/g, label: "fit(" },
-];
+const TEST_FUNCTIONS = new Set(["describe", "context", "suite", "it", "test"]);
+const FOCUSED_FUNCTIONS = new Set(["fdescribe", "fit"]);
 
 const matches = [];
 
@@ -57,30 +54,58 @@ function walk(dirPath) {
   }
 }
 
-function scanFile(filePath) {
-  const relativePath = filePath.replace(`${ROOT_DIR}/`, "");
-  if (SKIP_FILES.has(relativePath)) {
-    return;
+function callChain(node) {
+  if (ts.isIdentifier(node)) {
+    return [node.text];
   }
+  if (ts.isParenthesizedExpression(node) || ts.isCallExpression(node)) {
+    return callChain(node.expression);
+  }
+  if (ts.isPropertyAccessExpression(node)) {
+    return [...callChain(node.expression), node.name.text];
+  }
+  if (ts.isElementAccessExpression(node)) {
+    const property = node.argumentExpression;
+    if (ts.isStringLiteral(property) || ts.isNoSubstitutionTemplateLiteral(property)) {
+      return [...callChain(node.expression), property.text];
+    }
+  }
+  return [];
+}
 
+function scanFile(filePath) {
   const contents = readFileSync(filePath, "utf8");
   const lines = contents.split(/\r?\n/);
+  const source = ts.createSourceFile(filePath, contents, ts.ScriptTarget.Latest);
 
-  for (const check of CHECKS) {
-    let found;
-    while ((found = check.pattern.exec(contents)) !== null) {
-      const index = found.index;
-      const lineNumber = contents.slice(0, index).split(/\r?\n/).length;
-      const line = lines[lineNumber - 1]?.trim() ?? "";
+  function visit(node) {
+    let label;
+    if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
+      // Inspect the focus modifier itself so chains such as only.each are covered.
+      // Parsing keeps examples in comments and string literals out of the check.
+      const chain = callChain(node);
+      if (TEST_FUNCTIONS.has(chain[0]) && chain.at(-1) === "only") {
+        label = chain.join(".");
+      }
+    } else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      if (FOCUSED_FUNCTIONS.has(node.expression.text)) {
+        label = `${node.expression.text}(`;
+      }
+    }
+
+    if (label) {
+      const lineNumber = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
       matches.push({
         filePath,
         lineNumber,
-        label: check.label,
-        line,
+        label,
+        line: lines[lineNumber - 1]?.trim() ?? "",
       });
     }
-    check.pattern.lastIndex = 0;
+    ts.forEachChild(node, visit);
   }
+
+  visit(source);
 }
 
 if (!statSync(ROOT_DIR).isDirectory()) {
@@ -93,7 +118,7 @@ walk(ROOT_DIR);
 if (matches.length > 0) {
   console.error("Focused tests were found. Remove .only/focused patterns:");
   for (const match of matches) {
-    const relativePath = match.filePath.replace(`${ROOT_DIR}/`, "");
+    const relativePath = relative(ROOT_DIR, match.filePath);
     console.error(
       `- ${relativePath}:${match.lineNumber} matched ${match.label} -> ${match.line}`
     );
