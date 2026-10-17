@@ -134,7 +134,7 @@ describe("desktop controls", () => {
     await click("Virtual display 1280 by 720");
     await act(async () => inputInLabel("HiDPI").click());
     await change(inputInLabel("FPS"), "60");
-    await change(inputInLabel("Bitrate"), "8000");
+    await change(inputInLabel("Bitrate (kbps)"), "8000");
 
     expect(runtime.actions.setSelectedSourceId).toHaveBeenCalledWith("screen:2");
     expect(runtime.actions.refreshSources).toHaveBeenCalledOnce();
@@ -186,11 +186,13 @@ describe("desktop controls", () => {
 
   it("routes receiver actions and shows session and receiver details", async () => {
     runtime.runtimeState.receiver = { status: "connected", connectedCount: 2, latencyMs: 15, frameRate: 29 };
+    // Measured latency/fps chips only show while the stream is live (idle dashes are covered by streamIdleMetrics).
+    runtime.runtimeState.stream.status = "live";
     await render();
 
     expect(control("TV join code").textContent).toBe("ABC123");
     expect(container.querySelector(".tv-url")?.textContent).toBe(session.tvUrl);
-    expect(container.querySelector(".metrics-row")?.textContent).toBe("2 receiver15 ms29 fps");
+    expect(container.querySelector(".metrics-row")?.textContent).toBe("2 receivers15 ms29 fps");
     expect(control("Receiver on")).toBeTruthy();
     await click("Copy receiver URL");
     await click("Open receiver URL");
