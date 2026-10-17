@@ -9,7 +9,8 @@ test("receiver page loads and waits for the host stream", async ({ page }) => {
   await page.goto(url);
 
   await expect(page.locator("video#screen")).toBeAttached();
-  await expect(page.locator("#status")).toHaveText(/Connecting|Waiting for stream/i);
+  await expect(page.locator("#status")).toHaveAttribute("role", "status");
+  await expect(page.locator("#status")).toHaveText(/Connecting to StoryDesk|Waiting for StoryDesk to start the stream/i);
 
   await server.stop();
 });
@@ -19,7 +20,7 @@ test("receiver page reports reconnecting after server closes", async ({ page }) 
   const url = localReceiverUrl(server.session.receiverUrl);
 
   await page.goto(url);
-  await expect(page.locator("#status")).toHaveText(/Connecting|Waiting for stream/i);
+  await expect(page.locator("#status")).toHaveText(/Connecting to StoryDesk|Waiting for StoryDesk to start the stream/i);
   await server.stop();
 
   await expect(page.locator("#status")).toHaveText(/Reconnecting|Error/i);
@@ -30,7 +31,7 @@ test("receiver negotiates when the host starts after the receiver", async ({ pag
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto(localReceiverUrl(server.session.receiverUrl));
-  await expect(page.locator("#status")).toHaveText("Waiting for stream");
+  await expect(page.locator("#status")).toHaveText("Waiting for StoryDesk to start the stream");
 
   const host = new WebSocket(
     `${localReceiverUrl(server.session.wsUrl)}?role=host&token=${server.session.hostToken}`
@@ -67,7 +68,14 @@ test("invalid receiver token returns 404", async ({ page }) => {
   const response = await page.goto(url.toString());
 
   expect(response?.status()).toBe(404);
-  await expect(page.locator("body")).toContainText("Unknown session");
+  await expect(page.getByRole("heading", { name: "StoryDesk" })).toBeVisible();
+  await expect(page.getByText("This link is not a live session. Open a new QR or TV code from the app.")).toBeVisible();
+
+  url.pathname = "/fallback/not-the-token";
+  const fallbackResponse = await page.goto(url.toString());
+  expect(fallbackResponse?.status()).toBe(404);
+  await expect(page.getByText("This link is not a live session. Open a new QR or TV code from the app.")).toBeVisible();
+
   await server.stop();
 });
 
@@ -111,7 +119,9 @@ test("tv join compatibility mode opens the fallback receiver", async ({ page }) 
   await responsePromise;
 
   await expect(page.locator("img#screen")).toBeAttached();
-  await expect(page.locator("#status")).toHaveText(/Waiting|Live|Reconnecting|Offline/i);
+  await expect(page.locator("img#screen")).not.toHaveAttribute("alt", "");
+  await expect(page.locator("#status")).toHaveAttribute("role", "status");
+  await expect(page.locator("#status")).toHaveText(/Waiting for StoryDesk to start the stream|Live|Reconnecting|Offline/i);
   await server.stop();
 });
 

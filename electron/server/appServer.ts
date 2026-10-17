@@ -7,7 +7,7 @@ import type { DesktopSession } from "../lib/types";
 import { SignalingRoom, type SocketRole } from "../lib/signalingRoom";
 import { CastStreamHub } from "./castStreamHub";
 import { MjpegStreamHub } from "./mjpegStreamHub";
-import { renderFallbackReceiverPage, renderReceiverPage, renderTvJoinPage } from "./receiverPage";
+import { renderFallbackReceiverPage, renderReceiverPage, renderTvJoinPage, renderUnknownSessionPage } from "./receiverPage";
 
 export class AppServer {
   readonly castStreams = new CastStreamHub();
@@ -38,7 +38,7 @@ export class AppServer {
 
     app.get("/r/:token", (request, response) => {
       if (request.params.token !== instance.session.token) {
-        response.status(404).send("Unknown session");
+        sendUnknownSession(response);
         return;
       }
       response.type("html").send(renderReceiverPage(request.params.token));
@@ -74,7 +74,7 @@ export class AppServer {
 
     app.get("/fallback/:token", (request, response) => {
       if (request.params.token !== instance.session.token) {
-        response.status(404).send("Unknown session");
+        sendUnknownSession(response);
         return;
       }
       response.type("html").send(renderFallbackReceiverPage(request.params.token));
@@ -156,6 +156,10 @@ export class AppServer {
       this.server.close(() => resolve());
     });
   }
+}
+
+function sendUnknownSession(response: express.Response) {
+  response.status(404).type("html").send(renderUnknownSessionPage());
 }
 
 function listen(server: http.Server) {

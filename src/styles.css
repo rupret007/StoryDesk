@@ -393,6 +393,17 @@ input[type="checkbox"] {
   justify-items: stretch;
 }
 
+.join-preview-note {
+  color: #44514a;
+  font-size: 13px;
+  font-weight: 700;
+  justify-self: stretch;
+  line-height: 1.4;
+  margin: 0;
+  padding: 10px 4px;
+  text-align: center;
+}
+
 .tv-code {
   background: #10231e;
   border: 1px solid #315f51;

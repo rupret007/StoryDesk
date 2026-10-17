@@ -17,6 +17,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentEvent, AgentSettings, AgentToolCall } from "./types";
 import { useStoryDeskRuntime } from "./runtime/useStoryDeskRuntime";
+import { formatFpsChip, formatLatencyChip, formatReceiverCount } from "./streamMetrics";
 
 function App() {
   const {
@@ -192,7 +193,7 @@ function App() {
               />
             </label>
             <label>
-              Bitrate
+              Bitrate (kbps)
               <input
                 type="number"
                 min={1500}
@@ -206,9 +207,9 @@ function App() {
               />
             </label>
             <div className="metrics-row">
-              <span>{runtimeState.receiver.connectedCount} receiver</span>
-              <span>{runtimeState.receiver.latencyMs ?? "-"} ms</span>
-              <span>{runtimeState.receiver.frameRate ?? settings.stream.fps} fps</span>
+              <span>{formatReceiverCount(runtimeState.receiver.connectedCount)}</span>
+              <span>{formatLatencyChip(streamLive, runtimeState.receiver.latencyMs)}</span>
+              <span>{formatFpsChip(streamLive, runtimeState.receiver.frameRate)}</span>
             </div>
             <div className="button-row">
               <button
@@ -238,7 +239,9 @@ function App() {
               <CheckCircle2 size={18} />
               <h2>Receiver</h2>
             </div>
-            {runtimeState.session && (
+            {!desktopAvailable ? (
+              <PreviewJoinNote />
+            ) : runtimeState.session ? (
               <>
                 <QRCodeSVG value={runtimeState.session.receiverUrl} size={126} title="Receiver URL QR code" />
                 <div className="button-row full-row">
@@ -262,7 +265,7 @@ function App() {
                   </button>
                 </div>
               </>
-            )}
+            ) : null}
           </section>
 
           <section className="panel-section tv-section">
@@ -270,7 +273,9 @@ function App() {
               <Monitor size={18} />
               <h2>TV / Fire Stick</h2>
             </div>
-            {runtimeState.session && (
+            {!desktopAvailable ? (
+              <PreviewJoinNote />
+            ) : runtimeState.session ? (
               <>
                 <div className="tv-code" aria-label="TV join code">
                   {runtimeState.session.joinCode}
@@ -306,7 +311,7 @@ function App() {
                   </button>
                 </div>
               </>
-            )}
+            ) : null}
           </section>
 
           <section className="panel-section">
@@ -517,6 +522,10 @@ function formatAgentEvent(event: AgentEvent) {
     return `Proposed: ${event.toolCall.tool}`;
   }
   return event.type;
+}
+
+function PreviewJoinNote() {
+  return <p className="join-preview-note">Join link appears in the Electron app</p>;
 }
 
 function StatusPill({ label, active }: { label: string; active: boolean }) {

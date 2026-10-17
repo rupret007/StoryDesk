@@ -18,7 +18,7 @@ export function renderReceiverPage(token: string) {
   </head>
   <body>
     <video id="screen" autoplay playsinline></video>
-    <div id="status">Connecting</div>
+    <div id="status" role="status">Connecting to StoryDesk</div>
     <script>
       const token = ${safeToken};
       const status = document.getElementById("status");
@@ -82,7 +82,7 @@ export function renderReceiverPage(token: string) {
         ws = new WebSocket(wsProtocol + "//" + location.host + "/ws?role=receiver&token=" + token + "&id=" + receiverId);
         ws.onopen = () => {
           retryMs = 500;
-          setStatus("Waiting for stream");
+          setStatus("Waiting for StoryDesk to start the stream");
         };
         ws.onmessage = async (event) => {
           try {
@@ -175,8 +175,8 @@ export function renderFallbackReceiverPage(token: string) {
     </style>
   </head>
   <body>
-    <img id="screen" src="/fallback/${safeToken}/live.mjpg" alt="" />
-    <div id="status">Waiting</div>
+    <img id="screen" src="/fallback/${safeToken}/live.mjpg" alt="StoryDesk compatibility stream" />
+    <div id="status" role="status">Waiting for StoryDesk to start the stream</div>
     <script>
       const image = document.getElementById("screen");
       const status = document.getElementById("status");
@@ -186,12 +186,40 @@ export function renderFallbackReceiverPage(token: string) {
       window.setInterval(async () => {
         try {
           await fetch("/health", { cache: "no-store" });
-          if (status.textContent === "Reconnecting") setStatus("Waiting");
+          if (status.textContent === "Reconnecting") setStatus("Waiting for StoryDesk to start the stream");
         } catch {
           setStatus("Offline");
         }
       }, 1500);
     </script>
+  </body>
+</html>`;
+}
+
+export function renderUnknownSessionPage() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StoryDesk</title>
+    <style>
+      :root { color: #f7f2e9; background: #07120f; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { align-items: center; background: radial-gradient(circle at 50% 15%, #183f36, #07120f 58%); display: flex; min-height: 100vh; justify-content: center; margin: 0; padding: 28px; }
+      main { max-width: 760px; text-align: center; width: 100%; }
+      h1 { font-size: clamp(42px, 8vw, 82px); line-height: 1; margin: 0 0 18px; }
+      p { color: #cbd8d2; font-size: clamp(18px, 2.8vw, 28px); margin: 0 0 28px; }
+      a.action { background: #8fd3bb; border-radius: 10px; color: #07120f; display: inline-block; font-size: clamp(24px, 4vw, 40px); font-weight: 900; line-height: 1.2; min-height: 72px; padding: 18px 28px; text-decoration: none; }
+      a.action:focus-visible { outline: 3px solid #f7f2e9; outline-offset: 4px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>StoryDesk</h1>
+      <p>This link is not a live session. Open a new QR or TV code from the app.</p>
+      <a class="action" href="/tv">Enter a TV code</a>
+    </main>
   </body>
 </html>`;
 }
